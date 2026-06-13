@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  passwordHash  String
+  language      Language  @default(EN)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  memberships      Membership[]
+  sessions         Session[]
+  createdShifts    Shift[]          @relation("ShiftCreator")
+  createdTemplates ShiftTemplate[]  @relation("ShiftTemplateCreator")
+  timeAdjustments  TimeAdjustment[] @relation("AdjustmentCreator")
+  decidedSwapRequests ShiftSwapRequest[] @relation("SwapRequestDecider")
+  auditLogs        AuditLog[]       @relation("AuditActor")
+}
+
+model Organization {
+  id                 String   @id @default(cuid())
+  name               String
+  slug               String   @unique
+  timeZone           String   @default("Europe/Berlin")
+  workingDays        Int[]    @default([1, 2, 3, 4, 5, 6, 7])
+  maxMembersPerShift Int      @default(1)
+  allowShiftSwaps    Boolean  @default(false)
+  allowOpenShifts    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  memberships Membership[]
+  invites     Invite[]
+  shifts      Shift[]
+  shiftSwapRequests ShiftSwapRequest[]
+  shiftTemplates ShiftTemplate[]
+  adjustments TimeAdjustment[]
+  auditLogs   AuditLog[]
+}
+
+model Membership {
+  id                  String   @id @default(cuid())
+  userId              String
+  organizationId      String
+  role                Role     @default(EMPLOYEE)
+  weeklyTargetMinutes Int      @default(2400)
+  availableWeekdays   Int[]    @default([1, 2, 3, 4, 5, 6, 7])
+  notifyShiftChanges   Boolean  @default(true)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shiftAssignments ShiftAssignment[]
+  adjustments      TimeAdjustment[]
+  swapRequests     ShiftSwapRequest[] @relation("SwapRequestRequester")
+
+  @@unique([userId, organizationId])
+  @@unique([id, organizationId])
+  @@index([organizationId, isActive])
+}
+
+model Invite {
+  id                  String    @id @default(cuid())
+  organizationId      String
+  email               String
+  name                String?
+  role                Role      @default(EMPLOYEE)
+  weeklyTargetMinutes Int       @default(2400)
+  availableWeekdays   Int[]     @default([1, 2, 3, 4, 5, 6, 7])
+  tokenHash           String    @unique
+  expiresAt           DateTime
+  acceptedAt          DateTime?
+  createdAt           DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, acceptedAt])
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model LoginRateLimit {
+  id           String    @id @default(cuid())
+  key          String    @unique
+  count        Int       @default(0)
+  windowStart  DateTime
+  blockedUntil DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@index([blockedUntil])
+}
+
+model Shift {
+  id             String   @id @default(cuid())
+  organizationId String
+  templateId     String?
+  title          String
+  startTime      DateTime
+  endTime        DateTime
+  breakMinutes   Int      @default(0)
+  status         ShiftStatus @default(DRAFT)
+  isOpen         Boolean  @default(false)
+  location       String?
+  notes          String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template     ShiftTemplate?     @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  createdBy    User              @relation("ShiftCreator", fields: [createdById], references: [id])
+  assignments  ShiftAssignment[]
+  swapRequests ShiftSwapRequest[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, startTime])
+  @@index([organizationId, endTime])
+  @@index([organizationId, status])
+  @@index([templateId])
+}
+
+model ShiftSwapRequest {
+  id                    String            @id @default(cuid())
+  organizationId        String
+  shiftId               String
+  requesterMembershipId String
+  status                SwapRequestStatus @default(PENDING)
+  decidedById           String?
+  decidedAt             DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  shift        Shift        @relation(fields: [shiftId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  requester   Membership   @relation("SwapRequestRequester", fields: [requesterMembershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  decidedBy   User?        @relation("SwapRequestDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([requesterMembershipId])
+}
+
+model ShiftTemplate {
+  id              String   @id @default(cuid())
+  organizationId  String
+  title           String
+  startMinutes    Int
+  durationMinutes Int
+  breakMinutes    Int      @default(0)
+  location        String?
+  notes           String?
+  createdById     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("ShiftTemplateCreator", fields: [createdById], references: [id])
+  shifts       Shift[]
+
+  @@index([organizationId, title])
+}
+
+model ShiftAssignment {
+  id             String   @id @default(cuid())
+  organizationId String
+  shiftId        String
+  membershipId   String
+  createdAt      DateTime @default(now())
+
+  shift      Shift      @relation(fields: [shiftId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@unique([shiftId, membershipId])
+  @@index([organizationId])
+  @@index([membershipId])
+}
+
+model TimeAdjustment {
+  id             String   @id @default(cuid())
+  organizationId String
+  membershipId   String
+  minutes        Int
+  reason         String
+  createdById    String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership   Membership   @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  createdBy    User         @relation("AdjustmentCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([membershipId, createdAt])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String?
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorId])
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  EMPLOYEE
+}
+
+enum Language {
+  EN
+  DE
+}
+
+enum ShiftStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SwapRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

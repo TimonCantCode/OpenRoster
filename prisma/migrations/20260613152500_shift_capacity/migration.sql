@@ -1,0 +1,2 @@
+ALTER TABLE "Organization"
+ADD COLUMN "maxMembersPerShift" INTEGER NOT NULL DEFAULT 1;
