@@ -11,10 +11,14 @@ operated as a SaaS product.
 - `OWNER`, `ADMIN` and `EMPLOYEE` roles
 - Employee invitations via SMTP
 - Weekly and list-based shift schedule
+- Draft schedules with week publishing
+- Interactive week planner with automatic standard shifts, custom shifts, direct staffing and hour warnings
+- Optional employee email notifications for published shift changes
 - Reusable standard shifts and recurring series by weekday
 - Company working days and per-employee weekday availability
 - Configurable maximum employees per shift, defaulting to one
 - Direct availability-aware assignment from list and calendar views
+- Optional open shifts and employee swap requests
 - Weekly calendar and grouped list schedule views
 - Personal shift view for employees
 - Target, worked and plus/minus hours

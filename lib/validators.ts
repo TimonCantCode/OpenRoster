@@ -124,6 +124,24 @@ export const recurringShiftSchema = z
     }
   });
 
+export const weekPlanSchema = z.object({
+  shifts: z
+    .array(
+      z.object({
+        shiftId: z.string().cuid().optional(),
+        templateId: z.string().cuid().optional(),
+        date: z.iso.date(),
+        title: z.string().trim().min(2).max(120),
+        startTime: clockTime,
+        endTime: clockTime,
+        breakMinutes: z.coerce.number().int().min(0).max(1440),
+        location: z.string().trim().max(160).optional(),
+        membershipIds: z.array(z.string().cuid()).max(100),
+      }),
+    )
+    .max(100, "A weekly plan may contain at most 100 shifts."),
+});
+
 export const adjustmentSchema = z.object({
   membershipId: z.string().cuid(),
   minutes: z.coerce.number().int().min(-10080).max(10080).refine(Boolean, {

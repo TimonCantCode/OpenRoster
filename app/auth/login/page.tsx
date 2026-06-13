@@ -16,11 +16,13 @@ export default async function LoginPage({
 }) {
   const messages = await searchParams;
   return (
-    <main className="grid min-h-screen place-items-center px-5 py-12">
+    <main className="grid min-h-screen place-items-center px-4 py-8 sm:px-5 sm:py-12">
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <Logo />
-          <h1 className="mt-6 text-3xl font-bold tracking-tight">Welcome back</h1>
+          <h1 className="mt-5 text-2xl font-bold tracking-tight sm:mt-6 sm:text-3xl">
+            Welcome back
+          </h1>
           <p className="mt-2 text-sm text-slate-500">
             Sign in to your organization.
           </p>
