@@ -2,6 +2,7 @@
 
 import { Language } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { formString } from "@/lib/action-utils";
 import { requireMembership, requireUser } from "@/lib/auth";
@@ -40,4 +41,27 @@ export async function updateNotificationPreferencesAction(formData: FormData) {
 
   revalidatePath("/app", "layout");
   redirect("/app/settings?success=Notification+preferences+updated");
+}
+
+export async function updateScheduleViewAction(formData: FormData) {
+  await requireMembership();
+  const view = formString(formData, "view");
+  const requestedReturnTo = formString(formData, "returnTo");
+  if (view !== "list" && view !== "calendar") {
+    redirect("/app/schedule");
+  }
+  const returnTo = requestedReturnTo.startsWith("/app/schedule")
+    ? requestedReturnTo
+    : `/app/schedule?view=${view}`;
+
+  const cookieStore = await cookies();
+  cookieStore.set("openroster_schedule_view", view, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 365,
+    path: "/",
+  });
+
+  redirect(returnTo);
 }

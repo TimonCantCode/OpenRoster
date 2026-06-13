@@ -41,37 +41,38 @@ const features = [
 export default function HomePage() {
   return (
     <main>
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-5 sm:py-6">
         <Logo />
         <div className="flex gap-2">
-          <Link href="/auth/login" className={secondaryButtonClass}>
+          <Link href="/auth/login" className={`${secondaryButtonClass} px-3 sm:px-4`}>
             Sign in
           </Link>
-          <Link href="/auth/register" className={buttonClass}>
-            Get started
+          <Link href="/auth/register" className={`${buttonClass} px-3 sm:px-4`}>
+            <span className="sm:hidden">Start</span>
+            <span className="hidden sm:inline">Get started</span>
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl gap-12 px-5 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-5 sm:py-16 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12 lg:py-24">
         <div>
-          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-800">
+          <span className="inline-block rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 sm:text-sm">
             Open source · Self-hostable · SaaS-ready
           </span>
-          <h1 className="mt-6 max-w-3xl text-5xl font-bold tracking-[-0.04em] text-slate-900 sm:text-6xl">
+          <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-[-0.04em] text-slate-900 sm:mt-6 sm:text-6xl">
             Shift scheduling your team understands.
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:mt-6 sm:text-lg sm:leading-8">
             Plan shifts, invite employees and keep hour balances under
             control. Without overloaded enterprise software.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/auth/register" className={`${buttonClass} gap-2`}>
+          <div className="mt-7 grid gap-3 sm:mt-8 sm:flex sm:flex-wrap">
+            <Link href="/auth/register" className={`${buttonClass} w-full gap-2 sm:w-auto`}>
               Create organization <ArrowRight className="size-4" />
             </Link>
             <a
               href="https://github.com/"
-              className={secondaryButtonClass}
+              className={`${secondaryButtonClass} w-full sm:w-auto`}
               rel="noreferrer"
             >
               GitHub
@@ -96,7 +97,7 @@ export default function HomePage() {
                     {day}
                   </span>
                   <div>
-                    <div className="flex justify-between gap-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-4">
                       <strong>{title}</strong>
                       <span className="text-sm text-slate-500">{time}</span>
                     </div>
@@ -110,7 +111,7 @@ export default function HomePage() {
       </section>
 
       <section className="border-y bg-white">
-        <div className="mx-auto grid max-w-6xl gap-4 px-5 py-16 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mx-auto grid max-w-6xl gap-2 px-4 py-10 sm:grid-cols-2 sm:px-5 sm:py-16 lg:grid-cols-5">
           {features.map((feature) => (
             <div key={feature.title} className="rounded-2xl p-4">
               <feature.icon className="size-6 text-[#136f63]" />

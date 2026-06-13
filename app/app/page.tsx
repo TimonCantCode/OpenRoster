@@ -8,8 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Message } from "@/components/ui/message";
 import { requireMembership } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { calculateBalance } from "@/lib/hours";
+import { calculateBalance, getShiftMinutes } from "@/lib/hours";
 import { getDateLocale, getMessages } from "@/lib/i18n";
+import { formatMinutes } from "@/lib/utils";
 
 export default async function DashboardPage({
   searchParams,
@@ -185,10 +186,14 @@ export default async function DashboardPage({
             </div>
           ) : (
             <div className="divide-y">
-              {upcomingShifts.map((shift) => (
+              {upcomingShifts.map((shift, index) => (
                 <div
                   key={shift.id}
-                  className="grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[9rem_1fr_auto] sm:items-center"
+                  className={`grid gap-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[9rem_1fr_auto] sm:items-center ${
+                    !isAdmin && index === 0
+                      ? "rounded-xl bg-emerald-50/60 px-4 first:pt-4 last:pb-4"
+                      : ""
+                  }`}
                 >
                   <div>
                     <p className="text-sm font-semibold">
@@ -227,9 +232,14 @@ export default async function DashboardPage({
                   <div>
                     <p className="font-semibold">{shift.title}</p>
                     <p className="text-sm text-slate-500">
-                      {shift.assignments
-                        .map((assignment) => assignment.membership.user.name)
-                        .join(", ") || messages.unassigned}
+                      {isAdmin
+                        ? shift.assignments
+                            .map(
+                              (assignment) =>
+                                assignment.membership.user.name,
+                            )
+                            .join(", ") || messages.unassigned
+                        : `${formatMinutes(getShiftMinutes(shift))} · ${shift.breakMinutes} ${messages.breakShort}`}
                     </p>
                   </div>
                   {shift.location ? (

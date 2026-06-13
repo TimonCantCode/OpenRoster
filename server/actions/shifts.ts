@@ -2,7 +2,7 @@
 
 import { Role, ShiftStatus, SwapRequestStatus } from "@prisma/client";
 import { differenceInMinutes } from "date-fns";
-import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { fromZonedTime } from "date-fns-tz";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { formString, redirectWithMessage } from "@/lib/action-utils";
@@ -10,6 +10,10 @@ import { requireMembership } from "@/lib/auth";
 import { isAvailableOnShiftDay } from "@/lib/availability";
 import { prisma } from "@/lib/db";
 import { sendShiftChangeEmail } from "@/lib/mail";
+import {
+  getShiftNotificationLines,
+  notifyAssignedMembers,
+} from "@/lib/shift-notifications";
 import { optionalString } from "@/lib/utils";
 import { firstValidationError, shiftSchema } from "@/lib/validators";
 
@@ -25,55 +29,6 @@ function parseShift(formData: FormData) {
     notes: optionalString(formData.get("notes")) ?? undefined,
     membershipIds: formData.getAll("membershipIds").map(String),
   });
-}
-
-async function notifyAssignedMembers(params: {
-  organizationId: string;
-  shiftId: string;
-  subject: string;
-  lines: string[];
-}) {
-  const shift = await prisma.shift.findFirst({
-    where: { id: params.shiftId, organizationId: params.organizationId },
-    include: {
-      organization: true,
-      assignments: {
-        include: {
-          membership: { include: { user: true } },
-        },
-      },
-    },
-  });
-  if (!shift || shift.status !== ShiftStatus.PUBLISHED) return;
-
-  await Promise.all(
-    shift.assignments
-      .filter((assignment) => assignment.membership.notifyShiftChanges)
-      .map((assignment) =>
-        sendShiftChangeEmail({
-          email: assignment.membership.user.email,
-          organizationName: shift.organization.name,
-          subject: params.subject,
-          lines: params.lines,
-        }),
-      ),
-  );
-}
-
-function shiftLines(params: {
-  title: string;
-  startTime: Date;
-  endTime: Date;
-  timeZone: string;
-}) {
-  return [
-    params.title,
-    `${formatInTimeZone(params.startTime, params.timeZone, "yyyy-MM-dd HH:mm")} - ${formatInTimeZone(
-      params.endTime,
-      params.timeZone,
-      "HH:mm",
-    )}`,
-  ];
 }
 
 async function validateAssignees(
@@ -225,7 +180,11 @@ export async function updateShiftAction(formData: FormData) {
 
   const shift = await prisma.shift.findFirst({
     where: { id: parsed.data.shiftId, organizationId: actor.organizationId },
-    include: { assignments: true },
+    include: {
+      assignments: {
+        include: { membership: { include: { user: true } } },
+      },
+    },
   });
   if (!shift) {
     redirectWithMessage("/app/schedule", "error", "Shift not found.");
@@ -317,7 +276,7 @@ export async function updateShiftAction(formData: FormData) {
       subject: "Your OpenRoster shift was updated",
       lines: [
         "A published shift assigned to you was updated:",
-        ...shiftLines({
+        ...getShiftNotificationLines({
           title: parsed.data.title,
           startTime,
           endTime,
@@ -325,6 +284,31 @@ export async function updateShiftAction(formData: FormData) {
         }),
       ],
     });
+    const currentMembershipIds = new Set(membershipIds);
+    await Promise.all(
+      shift.assignments
+        .filter(
+          (assignment) =>
+            !currentMembershipIds.has(assignment.membershipId) &&
+            assignment.membership.notifyShiftChanges,
+        )
+        .map((assignment) =>
+          sendShiftChangeEmail({
+            email: assignment.membership.user.email,
+            organizationName: actor.organization.name,
+            subject: "You were removed from an OpenRoster shift",
+            lines: [
+              "You are no longer assigned to this shift:",
+              ...getShiftNotificationLines({
+                title: parsed.data.title,
+                startTime,
+                endTime,
+                timeZone: actor.organization.timeZone,
+              }),
+            ],
+          }),
+        ),
+    );
   }
   redirect("/app/schedule?success=Shift+updated");
 }
@@ -334,6 +318,11 @@ export async function deleteShiftAction(formData: FormData) {
   const shiftId = formString(formData, "shiftId");
   const shift = await prisma.shift.findFirst({
     where: { id: shiftId, organizationId: actor.organizationId },
+    include: {
+      assignments: {
+        include: { membership: { include: { user: true } } },
+      },
+    },
   });
   if (!shift) {
     redirectWithMessage("/app/schedule", "error", "Shift not found.");
@@ -355,6 +344,28 @@ export async function deleteShiftAction(formData: FormData) {
 
   revalidatePath("/app");
   revalidatePath("/app/schedule");
+  if (shift.status === ShiftStatus.PUBLISHED) {
+    await Promise.all(
+      shift.assignments
+        .filter((assignment) => assignment.membership.notifyShiftChanges)
+        .map((assignment) =>
+          sendShiftChangeEmail({
+            email: assignment.membership.user.email,
+            organizationName: actor.organization.name,
+            subject: "Your OpenRoster shift was cancelled",
+            lines: [
+              "A shift assigned to you was deleted:",
+              ...getShiftNotificationLines({
+                title: shift.title,
+                startTime: shift.startTime,
+                endTime: shift.endTime,
+                timeZone: actor.organization.timeZone,
+              }),
+            ],
+          }),
+        ),
+    );
+  }
   redirect("/app/schedule?success=Shift+deleted");
 }
 
@@ -456,7 +467,7 @@ export async function assignMemberToShiftAction(formData: FormData) {
       subject: "You were assigned to an OpenRoster shift",
       lines: [
         "You were assigned to this shift:",
-        ...shiftLines({
+        ...getShiftNotificationLines({
           title: shift.title,
           startTime: shift.startTime,
           endTime: shift.endTime,
@@ -729,7 +740,7 @@ export async function decideShiftSwapRequestAction(formData: FormData) {
         decision === "approve"
           ? "Your shift swap request was approved."
           : "Your shift swap request was rejected.",
-        ...shiftLines({
+        ...getShiftNotificationLines({
           title: request.shift.title,
           startTime: request.shift.startTime,
           endTime: request.shift.endTime,

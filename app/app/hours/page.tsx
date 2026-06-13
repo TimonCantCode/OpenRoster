@@ -1,6 +1,8 @@
 import { Role, ShiftStatus } from "@prisma/client";
 import { addMonths, format, parseISO, subMilliseconds } from "date-fns";
 import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { PageHeading } from "@/components/page-heading";
 import { Button, secondaryButtonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -93,22 +95,29 @@ export default async function HoursPage({
       />
       <div className="grid gap-6">
         <Message error={query.error} success={query.success} />
-        <div className="flex flex-wrap gap-3">
-          <a
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <Link
             href={`/app/hours?month=${format(addMonths(localMonthStart, -1), "yyyy-MM")}`}
-            className={secondaryButtonClass}
+            className={`${secondaryButtonClass} justify-self-start gap-1 px-3 sm:gap-2 sm:px-4`}
+            aria-label={messages.previousMonth}
           >
-            {messages.previousMonth}
-          </a>
-          <a href="/app/hours" className={secondaryButtonClass}>
+            <ChevronLeft className="size-4" />
+            <span className="hidden sm:inline">{messages.previousMonth}</span>
+          </Link>
+          <Link
+            href="/app/hours"
+            className={`${secondaryButtonClass} px-3 sm:px-4`}
+          >
             {messages.currentMonth}
-          </a>
-          <a
+          </Link>
+          <Link
             href={`/app/hours?month=${format(addMonths(localMonthStart, 1), "yyyy-MM")}`}
-            className={secondaryButtonClass}
+            className={`${secondaryButtonClass} justify-self-end gap-1 px-3 sm:gap-2 sm:px-4`}
+            aria-label={messages.nextMonth}
           >
-            {messages.nextMonth}
-          </a>
+            <span className="hidden sm:inline">{messages.nextMonth}</span>
+            <ChevronRight className="size-4" />
+          </Link>
         </div>
 
         {isAdmin ? (
@@ -150,7 +159,60 @@ export default async function HoursPage({
           </Card>
         ) : null}
 
-        <Card className="overflow-hidden p-0">
+        <div className="grid gap-4 md:hidden">
+          {rows.map(({ member, balance }) => {
+            const adjustmentMinutes = member.adjustments.reduce(
+              (total, adjustment) => total + adjustment.minutes,
+              0,
+            );
+
+            return (
+              <Card key={member.id}>
+                {isAdmin ? (
+                  <div className="mb-4 border-b pb-4">
+                    <p className="font-semibold">{member.user.name}</p>
+                    <p className="mt-0.5 truncate text-sm text-slate-500">
+                      {member.user.email}
+                    </p>
+                  </div>
+                ) : null}
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    {messages.balance}
+                  </p>
+                  <p
+                    className={`mt-2 text-3xl font-bold ${
+                      balance.balanceMinutes >= 0
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    {balance.balanceMinutes > 0 ? "+" : ""}
+                    {formatMinutes(balance.balanceMinutes)}
+                  </p>
+                </div>
+                <div className="mt-3 grid grid-cols-3 divide-x rounded-xl border bg-white">
+                  <MobileMetric
+                    label={messages.worked}
+                    value={formatMinutes(balance.workedMinutes)}
+                  />
+                  <MobileMetric
+                    label={messages.target}
+                    value={formatMinutes(balance.targetMinutes)}
+                  />
+                  <MobileMetric
+                    label={messages.adjustments}
+                    value={`${adjustmentMinutes > 0 ? "+" : ""}${formatMinutes(
+                      adjustmentMinutes,
+                    )}`}
+                  />
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        <Card className="hidden overflow-hidden p-0 md:block">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -206,5 +268,16 @@ export default async function HoursPage({
         </p>
       </div>
     </>
+  );
+}
+
+function MobileMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 px-2 py-3 text-center">
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-sm font-bold text-slate-900">{value}</p>
+    </div>
   );
 }

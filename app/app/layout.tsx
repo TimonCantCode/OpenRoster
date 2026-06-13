@@ -26,7 +26,7 @@ export default async function ApplicationLayout({
         userName={membership.user.name}
         messages={messages}
       />
-      <main className="px-5 py-7 lg:ml-64 lg:px-8 lg:py-9">
+      <main className="px-4 pb-24 pt-5 sm:px-5 sm:pt-7 lg:ml-64 lg:px-8 lg:py-9">
         <div className="mx-auto max-w-7xl">{children}</div>
       </main>
     </div>
